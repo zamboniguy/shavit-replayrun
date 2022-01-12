@@ -33,21 +33,7 @@ public void OnClientPutInServer(int client)
 	aReplayData[client].iFrameCount = 0;
 	aReplayData[client].fTime = -1.0;
 	aReplayData[client].bNewFormat = false;
-	aReplayData[client].iReplayVersion = 8;
-	aReplayData[client].sReplayName = "error";
-	delete aReplayData[client].aFrames;
-	aReplayData[client].aFrames = new ArrayList(aReplayData[client].iReplayVersion, 0);
-	aReplayData[client].fTickrate = -1.0;
-}
-
-public void OnClientDisconnect(int client)
-{
-	aReplayData[client].iPreFrames = 0;
-	aReplayData[client].iPostFrames = 0;
-	aReplayData[client].iFrameCount = 0;
-	aReplayData[client].fTime = -1.0;
-	aReplayData[client].bNewFormat = false;
-	aReplayData[client].iReplayVersion = 8;
+	aReplayData[client].iReplayVersion = 0x09;
 	aReplayData[client].sReplayName = "error";
 	delete aReplayData[client].aFrames;
 	aReplayData[client].aFrames = new ArrayList(aReplayData[client].iReplayVersion, 0);
@@ -84,15 +70,24 @@ public Action Shavit_ShouldSaveReplayCopy(int client, int style, float time, int
 	GetClientName(client, sReplayName, sizeof(sReplayName));
 	Format(sReplayName, MAX_NAME_LENGTH, "*%s", sReplayName);
 
+	char sAuthID[32];
+	GetClientAuthId(client, AuthId_Steam3, sAuthID, sizeof(sAuthID));
+	ReplaceString(sAuthID, 32, "[U:1:", "");
+	ReplaceString(sAuthID, 32, "]", "");
+
 	aReplayData[client].iPreFrames = Shavit_GetPlayerPreFrames(client);
 	aReplayData[client].iPostFrames = aReplayData[client].iPreFrames;
 	aReplayData[client].iFrameCount = Shavit_GetClientFrameCount(client) - aReplayData[client].iPreFrames - aReplayData[client].iPostFrames;
+	//PrintToChat(client, "PreFrames: %i", aReplayData[client].iPreFrames);
+	//PrintToChat(client, "PostFrames: %i", aReplayData[client].iPostFrames);
+	//PrintToChat(client, "FrameCount: %i %i", Shavit_GetClientFrameCount(client), aReplayData[client].iFrameCount);
 	aReplayData[client].fTime = time;
 	aReplayData[client].bNewFormat = true;
-	aReplayData[client].iReplayVersion = 8;
+	aReplayData[client].iReplayVersion = 0x09;
 	aReplayData[client].sReplayName = sReplayName;
 	aReplayData[client].aFrames = Shavit_GetReplayData(client, true);
-	aReplayData[client].fTickrate = float(GetGameTickCount());
+	aReplayData[client].fTickrate = (1.0 / GetTickInterval());
+	aReplayData[client].iSteamID = StringToInt(sAuthID);
 
 	PrintToChat(client, "[\x02ReplayRun\x01] Your \x0cpersonal replay data saved. \x01Use \x0c!replayrun \x01to watch.");
 
