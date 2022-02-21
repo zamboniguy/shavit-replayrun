@@ -3,11 +3,14 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-//#include <sourcemod>
-//#include <sdktools>
-//#include <cstrike>
-//#include <clientprefs>
-#include <shavit>
+#include <sourcemod>
+#include <shavit/core>
+#include <shavit/wr>
+#include <shavit/replay-playback>
+#include <shavit/replay-recorder>
+
+#undef REQUIRE_EXTENSIONS
+#include <cstrike>
 
 public Plugin myinfo = 
 {
@@ -19,6 +22,8 @@ public Plugin myinfo =
 };
 
 frame_cache_t aReplayData[MAXPLAYERS + 1];
+
+int gI_PlayerFinishFrame[MAXPLAYERS + 1];
 
 public void OnPluginStart()
 {
@@ -65,10 +70,22 @@ public void OnClientDisconnect(int client)
 
 public Action SM_ReplayRun(int client, int args)
 {
+	ChangeClientTeam(client, CS_TEAM_SPECTATOR);
+	RequestFrame(ReplayRun, GetClientSerial(client));
+
+	return Plugin_Handled;
+}
+
+public void ReplayRun(any data)
+{
+	int client = GetClientFromSerial(data);
+
 	// Check if central replay bot is idle
-	if (Shavit_GetReplayStatus(Shavit_GetReplayBotIndex(-1, -1)) == Replay_Idle) {
+	if (Shavit_GetReplayStatus(Shavit_GetReplayBotIndex(-1, -1)) == Replay_Idle)
+	{
 		// Check if there are any frames to play... switch to counting aFrames instead of iFrameCount
-		if (aReplayData[client].iFrameCount > 0) {
+		if (aReplayData[client].iFrameCount > 0)
+		{
 			Shavit_StartReplayFromFrameCache(Shavit_GetBhopStyle(client), Shavit_GetClientTrack(client), -1.0, client, Shavit_GetReplayBotIndex(-1, -1), Replay_Central, false, aReplayData[client]);
 
 			PrintToChat(client, "[\x02ReplayRun\x01] Now playing \x0Cyour \x01most recent run.");
@@ -82,15 +99,19 @@ public Action SM_ReplayRun(int client, int args)
 	{
 		PrintToChat(client, "[\x02ReplayRun\x01] \x0cWait \x01for current bot replay to stop.");
 	}
-	
-	
-	return Plugin_Handled;
+}
+
+public void Shavit_OnFinish(int client, int style, float time, int jumps, int strafes, float sync, int track, float oldtime, float perfs, float avgvel, float maxvel, int timestamp)
+{
+	gI_PlayerFinishFrame[client] = Shavit_GetClientFrameCount(client);
 }
 
 public Action Shavit_ShouldSaveReplayCopy(int client, int style, float time, int jumps, int strafes, float sync, int track, float oldtime, float perfs, float avgvel, float maxvel, int timestamp, bool isbestreplay, bool istoolong)
 {
-	aReplayData[client].aFrames = Shavit_GetReplayData(client, true);
+	delete aReplayData[client].aFrames;
+	aReplayData[client].aFrames = Shavit_GetReplayData(client);
 	aReplayData[client].iPreFrames = Shavit_GetPlayerPreFrames(client);
+	aReplayData[client].iPostFrames = Shavit_GetClientFrameCount(client) - gI_PlayerFinishFrame[client];
 	aReplayData[client].iFrameCount = aReplayData[client].aFrames.Length - aReplayData[client].iPreFrames - aReplayData[client].iPostFrames;
 	aReplayData[client].fTime = time;
 
